@@ -1,0 +1,64 @@
+services:
+  app:
+    build:
+      context: ./code
+      dockerfile: Dockerfile
+    expose:
+      - 662
+    command: uvicorn app:app --workers 2 --host 0.0.0.0 --port 662
+    volumes:
+      - ./code:/home/code
+      - ./code/static:/home/code/static
+      - ./code/whisper_model:/home/code/whisper_model
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - whisper-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:662"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 60s
+    restart: always
+
+  # nginx:
+  #   image: nginx
+  #   ports:
+  #     - "6002:443"  # HTTPS: host 6002 to container 443
+  #     - "82:80"     # HTTP: host 82 to container 80 (for redirect)
+  #   volumes:
+  #     - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+  #     - ./code/static:/usr/share/nginx/html/static
+  #     - ./nginx:/etc/nginx/certs:ro
+  #   depends_on:
+  #     app:
+  #       condition: service_healthy
+  #   networks:
+  #     - whisper-net
+  #   restart: always
+
+  nginx:
+    image: nginx
+    ports:
+      - "6002:443"
+      - "82:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro   # فایل به فایل
+      - ./code/static:/usr/share/nginx/html/static
+      - ./nginx:/etc/nginx/certs:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - whisper-net
+    restart: always
+
+networks:
+  whisper-net:
+    driver: bridge

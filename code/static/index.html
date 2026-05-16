@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>  تبدیل گفتار به متن </title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('/static/asr.png') no-repeat center center fixed;
+            background-size: cover;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        .button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+            font-size: 1em;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 1.1em;
+            color: #2c3e50;
+            direction: rtl;
+            text-align: right;
+        }
+        .guide-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: right;
+            font-size: 0.9em;
+            color: #34495e;
+        }
+        .guide-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> به سرویس تبدیل گفتار به متن شرکت صدرا افزار خوش آمدید </h1>
+        <button id="startRecord" class="button"><i class="fas fa-microphone"></i> شروع ضبط</button>
+        <button id="stopRecord" class="button" disabled><i class="fas fa-stop"></i> توقف ضبط</button>
+        <input type="file" id="audioFile" accept=".wav,.mp3,.webm">
+        <button id="uploadFile" class="button"><i class="fas fa-upload"></i> آپلود و تبدیل فایل</button>
+        <div id="status">در انتظار...</div>
+        <div class="guide-card">
+            <h3>راهنمای استفاده</h3>
+            <p>۱. برای ضبط صدا، روی "شروع ضبط" کلیک کنید و اجازه دسترسی به میکروفون را بدهید.</p>
+            <p>۲. پس از ضبط، روی "توقف ضبط" کلیک کنید تا متن تبدیل شده نمایش داده شود.</p>
+            <p>۳. برای آپلود فایل صوتی (WAV، MP3 یا WebM)، فایل را انتخاب کرده و روی "آپلود و تبدیل فایل" کلیک کنید.</p>
+            <p>۴. متن تبدیل شده نمایش داده شده و قابل دانلود است.</p>
+            <p><strong>نکته:</strong> برای ضبط صدا، باید از طریق HTTPS به برنامه دسترسی داشته باشید.</p>
+        </div>
+    </div>
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        document.getElementById('startRecord').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const formData = new FormData();
+                    formData.append('file', audioBlob, 'recording.webm');
+                    try {
+                        const response = await fetch('/transcribe', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await response.json();
+                        document.getElementById('status').innerHTML = `متن: ${data.text}<br><a href="/download/${data.text_filename}" download>دانلود متن</a>`;
+                    } catch (error) {
+                        document.getElementById('status').innerText = 'خطا در تبدیل صدا: ' + error.message;
+                    }
+                };
+                mediaRecorder.start();
+                document.getElementById('startRecord').disabled = true;
+                document.getElementById('stopRecord').disabled = false;
+            } catch (error) {
+                document.getElementById('status').innerText = 'خطا در دسترسی به میکروفون: ' + error.message + '. لطفاً از HTTPS استفاده کنید.';
+            }
+        });
+
+        document.getElementById('stopRecord').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                document.getElementById('startRecord').disabled = false;
+                document.getElementById('stopRecord').disabled = true;
+            }
+        });
+
+        document.getElementById('uploadFile').addEventListener('click', async () => {
+            const fileInput = document.getElementById('audioFile');
+            if (!fileInput.files[0]) {
+                document.getElementById('status').innerText = 'لطفاً یک فایل صوتی انتخاب کنید.';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            try {
+                document.getElementById('status').innerText = 'در حال آپلود و تبدیل...';
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                document.getElementById('status').innerHTML = `متن: ${data.text}<br><a href="/download/${data.text_filename}" download>دانلود متن</a>`;
+            } catch (error) {
+                document.getElementById('status').innerText = 'خطا در آپلود فایل: ' + error.message;
+            }
+        });
+
+        // Ensure service worker is registered for HTTPS
+        if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.error('Service Worker registration failed', err));
+            });
+        }
+    </script>
+</body>
+</html>

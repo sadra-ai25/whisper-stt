@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Large model files
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+*.onnx
+
+# Archives
+*.tar
+*.zip
+
+# Whisper model directory
+code/whisper_model/model/
+code/whisper_model/model.*
+
+# Temp/output
+outputs/
+tmp_voice/
+uploads/
+*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

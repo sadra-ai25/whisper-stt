@@ -40,7 +40,7 @@ Browser / API Client
         │
         ▼
    Transcription Result
-   { text: "متن فارسی..." }
+   { text: "...transcribed text..." }
 ```
 
 ## Prerequisites
